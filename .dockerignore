@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dev environment files
+.env
+.env.backup
+.env.production
+.editorconfig
+.npmrc
+.phpactor.json
+.phpunit.result.cache
+.vscode
+.idea
+.cursor
+.nova
+.zed
+
+# Dependencies (will be installed inside container)
+/vendor
+/node_modules
+
+# Built assets (will be built inside container)
+/public/build
+/public/hot
+
+# Logs & runtime files
+/storage/logs/*.log
+/storage/pail
+/storage/*.key
+/bootstrap/cache/*.php
+
+# Documentation
+README.md
+CHECKLIST.md
+
+# Test files
+/tests
+phpunit.xml
+
+# Misc
+Thumbs.db
+.DS_Store
+*.log
