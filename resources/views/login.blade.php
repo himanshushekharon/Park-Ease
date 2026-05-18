@@ -197,6 +197,7 @@
         <!-- Right Side: Glassmorphism Auth Container -->
         <div class="auth-right">
             <div class="auth-glass-container">
+                <div id="sync-error" style="display:none;"></div>
                 <div id="sign-in-loading" class="clerk-loading-container">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>

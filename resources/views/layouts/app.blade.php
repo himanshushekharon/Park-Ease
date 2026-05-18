@@ -467,6 +467,14 @@
                     }
                 @endauth
 
+                // Safe Auth Redirect Logic: If authenticated on both, prevent viewing login/register
+                const currentPath = window.location.pathname;
+                if (isLaravelAuth && (currentPath === '/login' || currentPath === '/register')) {
+                    console.log("[Auth] User authenticated on Clerk & Laravel. Redirecting to /dashboard.");
+                    window.location.href = '/dashboard';
+                    return;
+                }
+
                 // If Clerk says logged in, but Laravel is not, force sync by clearing the flag
                 if (!isLaravelAuth) {
                     sessionStorage.removeItem('clerk_synced');
@@ -474,7 +482,9 @@
 
                 // Sync Logic
                 if (!sessionStorage.getItem('clerk_synced')) {
+                    console.log("[Auth] Sync needed. Fetching Clerk session token...");
                     const token = await Clerk.session.getToken();
+                    console.log("[Auth] Clerk token fetched. Syncing session with Laravel backend...");
                     try {
                         const response = await fetch('/api/auth/clerk-sync', {
                             method: 'POST',
@@ -491,17 +501,71 @@
                             })
                         });
                         if (response.ok) {
+                            console.log("[Auth] Session synced successfully. Reloading...");
                             sessionStorage.setItem('clerk_synced', 'true');
                             window.location.reload();
                             return; // PREVENT execution of renderClerkComponent before reload completes
                         } else {
-                            // If sync fails (e.g. CSRF token mismatch), force a hard logout
-                            await Clerk.signOut();
-                            window.location.href = '/login';
+                            console.error("[Auth] Session sync failed on backend with status: " + response.status);
+                            let errMessage = "Authentication failed. Please try again.";
+                            try {
+                                const errData = await response.json();
+                                errMessage = errData.error || errMessage;
+                            } catch (eJson) {
+                                try { errMessage = await response.text(); } catch (eText) {}
+                            }
+                            
+                            const errorContainer = document.getElementById('sync-error');
+                            const loadingDiv = document.getElementById('sign-in-loading') || document.getElementById('sign-up-loading');
+                            
+                            if (errorContainer) {
+                                errorContainer.innerHTML = `
+                                    <div class="alert alert-danger border border-danger-subtle p-3 rounded-3 mb-4" style="background: rgba(239, 68, 68, 0.1); color: #EF4444; border-color: rgba(239, 68, 68, 0.2) !important;">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                        <strong>Authentication Error:</strong> ${errMessage}
+                                    </div>
+                                `;
+                                errorContainer.style.display = 'block';
+                            } else {
+                                alert("Authentication Error: " + errMessage);
+                            }
+                            
+                            if (loadingDiv) loadingDiv.style.display = 'none';
+                            
+                            // If sync fails on backend, sign out of Clerk so they can start fresh
+                            try {
+                                await Clerk.signOut();
+                            } catch (eSignOut) {}
+                            
+                            if (typeof window.renderClerkComponent === 'function') {
+                                window.renderClerkComponent();
+                            }
                             return;
                         }
                     } catch (e) { 
-                        console.error(e); 
+                        console.error("[Auth] Connection error during session sync: ", e); 
+                        const errorContainer = document.getElementById('sync-error');
+                        const loadingDiv = document.getElementById('sign-in-loading') || document.getElementById('sign-up-loading');
+                        
+                        if (errorContainer) {
+                            errorContainer.innerHTML = `
+                                <div class="alert alert-danger border border-danger-subtle p-3 rounded-3 mb-4" style="background: rgba(239, 68, 68, 0.1); color: #EF4444; border-color: rgba(239, 68, 68, 0.2) !important;">
+                                    <i class="bi bi-wifi-off me-2"></i>
+                                    <strong>Connection Error:</strong> Failed to connect to authentication server. Please check your network connection.
+                                </div>
+                            `;
+                            errorContainer.style.display = 'block';
+                        }
+                        
+                        if (loadingDiv) loadingDiv.style.display = 'none';
+                        
+                        try {
+                            await Clerk.signOut();
+                        } catch (eSignOut) {}
+                        
+                        if (typeof window.renderClerkComponent === 'function') {
+                            window.renderClerkComponent();
+                        }
                     }
                 }
             } else {

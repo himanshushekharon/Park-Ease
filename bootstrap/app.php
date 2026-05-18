@@ -12,9 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->validateCsrfTokens(except: [
+            'api/auth/clerk-sync',
+        ]);
         $middleware->alias([
             'onboarded' => \App\Http\Middleware\EnsureOnboardingCompleted::class,
         ]);
+    })
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule) {
+        $schedule->command('bookings:update-status')->everyMinute();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

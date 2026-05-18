@@ -58,6 +58,11 @@
                             <input type="tel" id="cust_phone" class="form-control-premium w-100" placeholder="10-digit mobile number" required>
                             <div class="form-text text-secondary small">Required for seamless payment experience.</div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Vehicle Registration Number <span class="text-danger">*</span></label>
+                            <input type="text" id="cust_vehicle" class="form-control-premium w-100" placeholder="e.g. MH12AB1234" required style="text-transform: uppercase;">
+                            <div class="form-text text-secondary small">Required for check-in verification at the parking property.</div>
+                        </div>
                     </div>
 
                     <!-- Payment Methods -->
@@ -166,9 +171,55 @@
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        function getISTDateTime() {
+            const now = new Date();
+            const formatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            const formatted = formatter.format(now);
+            const cleaned = formatted.replace(',', '').trim();
+            const parts = cleaned.split(' ');
+            return {
+                date: parts[0],
+                time: parts[1],
+                full: cleaned
+            };
+        }
+
+        function isSlotExpired(dateStr, timeSlotId) {
+            if (!dateStr || !timeSlotId) return false;
+            const ist = getISTDateTime();
+            
+            if (dateStr < ist.date) {
+                return true;
+            }
+            
+            if (dateStr === ist.date) {
+                const startTimeStr = timeSlotId.split('-')[0].trim();
+                const slotStartTime = startTimeStr.includes(':') ? startTimeStr + ':00' : startTimeStr;
+                if (slotStartTime < ist.time) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Load data from session storage (saved from parking page)
         const bookingData = JSON.parse(sessionStorage.getItem('pending_booking'));
         if (!bookingData || bookingData.lot_id !== '{{ $lot->_id }}') {
+            window.location.href = '/parking/{{ $lot->_id }}';
+            return;
+        }
+
+        if (isSlotExpired(bookingData.date, bookingData.time_slot_id)) {
+            alert("This parking slot time has already passed. Please select a future time slot.");
             window.location.href = '/parking/{{ $lot->_id }}';
             return;
         }
@@ -199,6 +250,22 @@
 
         // Final Payment Action with Razorpay Integration
         payNowBtn.addEventListener('click', async function() {
+            const name = document.getElementById('cust_name').value.trim();
+            const email = document.getElementById('cust_email').value.trim();
+            const phone = document.getElementById('cust_phone').value.trim();
+            const vehicle = document.getElementById('cust_vehicle').value.trim();
+
+            if (!name || !email || !phone || !vehicle) {
+                alert('Please fill in all the required customer fields (including phone and vehicle registration number).');
+                return;
+            }
+
+            if (isSlotExpired(date, time)) {
+                alert("This parking slot time has already passed. Please select a future time slot.");
+                window.location.href = `/parking/${bookingData.lot_id}`;
+                return;
+            }
+
             const btn = this;
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Initializing Payment...';
@@ -289,6 +356,7 @@
                                     email: document.getElementById('cust_email').value,
                                     customer_name: document.getElementById('cust_name').value,
                                     customer_phone: document.getElementById('cust_phone').value,
+                                    vehicle_number: document.getElementById('cust_vehicle').value,
                                     payment_method: 'razorpay',
                                     // Razorpay details
                                     razorpay_payment_id: response.razorpay_payment_id,

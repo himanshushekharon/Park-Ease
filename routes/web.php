@@ -61,6 +61,9 @@ Route::middleware(['auth', 'onboarded'])->group(function () {
     Route::get('/owner/parking/{id}/manage', [OwnerController::class, 'manageLot']);
     Route::post('/api/owner/parking-lots', [OwnerController::class, 'storeParkingLot']);
     Route::post('/api/owner/manual-booking', [OwnerController::class, 'storeManualBooking']);
+    Route::get('/api/owner/bookings', [OwnerController::class, 'getBookings']);
+    Route::post('/api/owner/verify-booking', [OwnerController::class, 'verifyBooking']);
+    Route::post('/api/owner/mark-attended', [OwnerController::class, 'markAttended']);
     
     // Razorpay Integration Route
     Route::post('/api/create-order', [\App\Http\Controllers\PaymentController::class, 'createOrder']);

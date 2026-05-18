@@ -28,11 +28,30 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
     'generated_at',
     'refund_amount',
     'refund_status',
-    'cancelled_at'
+    'cancelled_at',
+    'attended_at',
+    'verified_by',
+    'completed_at',
+    'expired_at',
+    'vehicle_number'
 ]) ]
 class Booking extends Model
 {
     protected $collection = 'bookings';
+
+    public function getStartCarbon()
+    {
+        if (!$this->time_slot_id || !$this->date) return null;
+        $times = explode('-', $this->time_slot_id);
+        return \Carbon\Carbon::parse($this->date . ' ' . trim($times[0]), 'Asia/Kolkata');
+    }
+
+    public function getEndCarbon()
+    {
+        if (!$this->time_slot_id || !$this->date) return null;
+        $times = explode('-', $this->time_slot_id);
+        return \Carbon\Carbon::parse($this->date . ' ' . trim($times[1]), 'Asia/Kolkata');
+    }
 
     public function user()
     {

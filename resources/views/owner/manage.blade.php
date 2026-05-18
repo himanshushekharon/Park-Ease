@@ -96,6 +96,46 @@
 
 @push('scripts')
 <script>
+    function getISTDateTime() {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+        const formatted = formatter.format(now);
+        const cleaned = formatted.replace(',', '').trim();
+        const parts = cleaned.split(' ');
+        return {
+            date: parts[0],
+            time: parts[1],
+            full: cleaned
+        };
+    }
+
+    function isSlotExpired(dateStr, timeSlotId) {
+        if (!dateStr || !timeSlotId) return false;
+        const ist = getISTDateTime();
+        
+        if (dateStr < ist.date) {
+            return true;
+        }
+        
+        if (dateStr === ist.date) {
+            const startTimeStr = timeSlotId.split('-')[0].trim();
+            const slotStartTime = startTimeStr.includes(':') ? startTimeStr + ':00' : startTimeStr;
+            if (slotStartTime < ist.time) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const parkingId = '{{ $parkingLot->_id }}';
     const prices = {
         car: {{ $parkingLot->car_price }},
@@ -187,15 +227,20 @@
             return;
         }
 
+        const date = document.getElementById('manageDate').value;
+        const time = document.getElementById('manageTime').value;
+        const isExpired = isSlotExpired(date, time);
+
         container.innerHTML = filtered.map(slot => {
             const slotId = slot.id || slot._id;
-            const isBooked = slot.is_booked;
+            const isBooked = slot.is_booked || isExpired;
             const isSelected = selectedSlots.some(s => s.id === slotId);
-            const statusClass = isBooked ? 'slot-booked' : (isSelected ? 'slot-selected' : 'slot-available');
+            const statusClass = isExpired ? 'slot-expired' : (slot.is_booked ? 'slot-booked' : (isSelected ? 'slot-selected' : 'slot-available'));
             const attr = isBooked ? '' : `onclick="toggleSlot('${slotId}', '${slot.slot_number}', '${slot.vehicle_type}')"`;
+            const tooltipAttr = isExpired ? 'title="Booking time expired"' : '';
             
-            const watermark = `<span class="slot-watermark">${slot.vehicle_type}</span>`;
-            return `<div class="slot-box ${statusClass} position-relative" id="slot-${slotId}" ${attr}>
+            const watermark = `<span class="slot-watermark">${isExpired ? 'EXPIRED' : slot.vehicle_type}</span>`;
+            return `<div class="slot-box ${statusClass} position-relative" id="slot-${slotId}" ${attr} ${tooltipAttr}>
                         ${slot.slot_number}
                         ${watermark}
                     </div>`;
@@ -317,6 +362,15 @@
         color: #cbd5e0 !important;
         border: 2px solid #e2e8f0 !important;
         opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .slot-expired {
+        background-color: #f8fafc !important;
+        color: #cbd5e0 !important;
+        border: 2px dashed #cbd5e0 !important;
+        opacity: 0.45;
         cursor: not-allowed;
         pointer-events: none;
     }

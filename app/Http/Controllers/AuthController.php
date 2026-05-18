@@ -194,6 +194,12 @@ class AuthController extends Controller
                 $name = 'Clerk User';
             }
 
+            \Illuminate\Support\Facades\Log::debug('[ClerkSync] Sync payload extracted.', [
+                'clerk_id' => $userId,
+                'email' => $email,
+                'name' => $name,
+            ]);
+
             // Sync user to MongoDB
             $user = User::where('clerk_id', $userId)->first();
             
@@ -204,6 +210,7 @@ class AuthController extends Controller
                 if ($user) {
                     $user->clerk_id = $userId;
                     $user->save();
+                    \Illuminate\Support\Facades\Log::debug('[ClerkSync] Synced existing email user with clerk_id.', ['user_id' => $user->id]);
                 } else {
                     $user = User::create([
                         'clerk_id' => $userId,
@@ -214,12 +221,21 @@ class AuthController extends Controller
                         'onboarding_completed' => false,
                         'kyc_status' => 'unverified'
                     ]);
+                    \Illuminate\Support\Facades\Log::debug('[ClerkSync] Created new user for Clerk login.', ['user_id' => $user->id]);
                 }
+            } else {
+                \Illuminate\Support\Facades\Log::debug('[ClerkSync] Loaded existing Clerk user.', ['user_id' => $user->id]);
             }
 
             // Authenticate the user in Laravel
             Auth::login($user);
             $request->session()->regenerate();
+
+            \Illuminate\Support\Facades\Log::debug('[ClerkSync] Laravel backend authenticated.', [
+                'auth_check' => Auth::check(),
+                'user_id' => Auth::id(),
+                'session_id' => $request->session()->getId(),
+            ]);
 
             // Record login log
             \App\Models\AuthLog::create([
@@ -237,6 +253,10 @@ class AuthController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[ClerkSync] Critical session sync failure.', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json(['error' => 'Authentication failed: ' . $e->getMessage()], 401);
         }
     }

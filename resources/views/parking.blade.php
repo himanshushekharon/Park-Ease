@@ -132,6 +132,20 @@
         box-shadow: none !important;
     }
 
+    .slot-expired {
+        background: #f8fafc !important;
+        color: #cbd5e0 !important;
+        border-color: #e2e8f0 !important;
+        cursor: not-allowed !important;
+        opacity: 0.45;
+        pointer-events: none;
+    }
+
+    .slot-expired:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
     .slot-watermark {
         font-size: 0.5rem;
         text-transform: uppercase;
@@ -266,6 +280,7 @@
                     <div class="legend-item"><div class="legend-box" style="background: var(--light-blue); border: 2px solid var(--navy-blue);"></div> Available</div>
                     <div class="legend-item"><div class="legend-box" style="background: #000;"></div> Selected</div>
                     <div class="legend-item"><div class="legend-box" style="background: #f1f5f9; opacity: 0.7;"></div> Booked</div>
+                    <div class="legend-item"><div class="legend-box" style="background: #f8fafc; border: 2px dashed #cbd5e0; opacity: 0.5;"></div> Expired</div>
                 </div>
 
                 <div id="gridLoading" class="d-none text-center py-5">
@@ -289,6 +304,46 @@
 
 @push('scripts')
 <script>
+    function getISTDateTime() {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+        const formatted = formatter.format(now);
+        const cleaned = formatted.replace(',', '').trim();
+        const parts = cleaned.split(' ');
+        return {
+            date: parts[0],
+            time: parts[1],
+            full: cleaned
+        };
+    }
+
+    function isSlotExpired(dateStr, timeSlotId) {
+        if (!dateStr || !timeSlotId) return false;
+        const ist = getISTDateTime();
+        
+        if (dateStr < ist.date) {
+            return true;
+        }
+        
+        if (dateStr === ist.date) {
+            const startTimeStr = timeSlotId.split('-')[0].trim();
+            const slotStartTime = startTimeStr.includes(':') ? startTimeStr + ':00' : startTimeStr;
+            if (slotStartTime < ist.time) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const parkingId = '{{ $id }}';
     let selectedSlots = []; 
     let currentFilter = 'car';
@@ -313,11 +368,27 @@
         const timeSlotId = document.getElementById('timeSlot').value;
         if (!date) return alert("Please select a date");
 
+        const container = document.getElementById('slotGridContainer');
+
+        if (isSlotExpired(date, timeSlotId)) {
+            alert("This parking slot time has already passed. Please select a future time slot.");
+            selectedSlots = [];
+            container.innerHTML = `
+                <div class="text-center py-5 w-100 grid-message" style="background: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.2); border-radius: 16px; margin-top: 15px;">
+                    <i class="bi bi-calendar-x fs-1 text-danger opacity-70 mb-3 d-block"></i>
+                    <h6 class="fw-bold text-danger">Selected Slot Time Has Passed</h6>
+                    <p class="small text-muted mb-0">Booking slots in the past is not permitted. Please select a future date or timing window.</p>
+                </div>
+            `;
+            document.getElementById('confirmBookingBtn').disabled = true;
+            document.getElementById('bookingSummary').classList.add('d-none');
+            return;
+        }
+
         const btn = document.getElementById('checkAvailabilityBtn');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Checking...';
 
-        const container = document.getElementById('slotGridContainer');
         container.innerHTML = Array(12).fill(0).map(() => `<div class="skeleton" style="width: 55px; height: 55px;"></div>`).join('');
 
         try {
@@ -359,16 +430,22 @@
             return;
         }
 
+        const date = document.getElementById('bookingDate').value;
+        const timeSlotId = document.getElementById('timeSlot').value;
+        const isExpired = isSlotExpired(date, timeSlotId);
+
         container.innerHTML = filtered.map(slot => {
             const slotId = slot.id || slot._id;
             const isSelected = selectedSlots.some(s => s.id === slotId);
-            const statusClass = slot.is_booked ? 'slot-booked' : (isSelected ? 'slot-selected' : 'slot-available');
-            const onClick = slot.is_booked ? '' : `onclick="toggleSlot('${slotId}', '${slot.slot_number}', '${slot.vehicle_type}', ${prices[slot.vehicle_type]})"`;
+            const isBooked = slot.is_booked || isExpired;
+            const statusClass = isExpired ? 'slot-expired' : (slot.is_booked ? 'slot-booked' : (isSelected ? 'slot-selected' : 'slot-available'));
+            const onClick = isBooked ? '' : `onclick="toggleSlot('${slotId}', '${slot.slot_number}', '${slot.vehicle_type}', ${prices[slot.vehicle_type]})"`;
+            const tooltipAttr = isExpired ? 'title="Booking time expired"' : '';
             
             return `
-                <div class="slot-box ${statusClass}" id="slot-${slotId}" ${onClick}>
+                <div class="slot-box ${statusClass}" id="slot-${slotId}" ${onClick} ${tooltipAttr}>
                     ${slot.slot_number}
-                    <div class="slot-watermark">${slot.vehicle_type}</div>
+                    <div class="slot-watermark">${isExpired ? 'EXPIRED' : slot.vehicle_type}</div>
                 </div>
             `;
         }).join('');
@@ -434,11 +511,17 @@
             window.location.href = '/login';
             return;
         }
+        const date = document.getElementById('bookingDate').value;
+        const timeSlotId = document.getElementById('timeSlot').value;
+        if (isSlotExpired(date, timeSlotId)) {
+            alert("This parking slot time has already passed. Please select a future time slot.");
+            return;
+        }
         const bookingData = {
             lot_id: parkingId,
             slots: selectedSlots,
-            time_slot_id: document.getElementById('timeSlot').value,
-            date: document.getElementById('bookingDate').value
+            time_slot_id: timeSlotId,
+            date: date
         };
         sessionStorage.setItem('pending_booking', JSON.stringify(bookingData));
         window.location.href = `/checkout?lot_id=${parkingId}`;

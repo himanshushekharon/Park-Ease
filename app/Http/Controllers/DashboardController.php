@@ -79,7 +79,7 @@ class DashboardController extends Controller
         $totalParkingLots = $parkingLots->count();
         $totalSlots = \App\Models\Slot::whereIn('parking_lot_id', $parkingLots->pluck('_id'))->count();
         $activeBookingsCount = Booking::whereIn('parking_lot_id', $parkingLots->pluck('_id'))
-            ->where('status', 'confirmed')
+            ->whereIn('status', ['confirmed', 'upcoming', 'active', 'attended'])
             ->where('date', '>=', date('Y-m-d'))
             ->count();
 

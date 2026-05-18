@@ -295,7 +295,7 @@
                 </div>
                 <div class="p-5 text-center">
                     <div class="bg-white p-3 d-inline-block rounded-3 mb-4 shadow-sm border">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" fill="#0E5E6F" class="bi bi-qr-code" viewBox="0 0 16 16"><path d="M2 2h2v2H2V2Z"/><path d="M6 0v6H0V0h6ZM5 1H1v4h4V1ZM4 12H2v2h2v-2Z"/><path d="M6 10v6H0v-6h6Zm-5 1v4h4v-4H1Zm11-9h2v2h-2V2Z"/><path d="M10 0v6h6V0h-6Zm5 1v4h4V1h-4ZM8 1V0h1v2H8v2H7V1h1Zm0 5V4h1v2H8ZM6 8V7h1V6h1v2h1V7h5v1h-4v1H7V8H6Zm0 0v1H2V8H1v1H0V7h3v1h3Zm10 1h-1V7h1v2ZM10 10v6h6v-6h-6Zm1 1h4v4h-4v-4Zm-4-4v2h1v-1h1v1h1V7H7Zm1 10h-1v-1h2v-1h1v3h-1v-1h-1v1ZM8 10h1v1H8v-1Zm1 1v2H8v-1H7v1h1v-2h1Z"/></svg>
+                        <img id="ticketQrImage" src="" width="160" height="160" alt="Ticket QR Code">
                     </div>
                     <h4 class="text-h4 mb-1" id="ticketParking"></h4>
                     <p class="text-secondary" id="ticketTime"></p>
@@ -395,12 +395,17 @@
         } catch (e) { alert('Error'); btn.disabled = false; btn.innerHTML = 'Confirm'; }
     });
 
-    function openTicketModal(id, parking, date, time, slot, vehicle) {
-        document.getElementById('ticketId').innerText = '#' + id.toUpperCase();
+    function openTicketModal(id, parking, date, time, slot, vehicle, bookingId) {
+        const finalBookingId = bookingId || id;
+        document.getElementById('ticketId').innerText = '#' + finalBookingId.toUpperCase();
         document.getElementById('ticketParking').innerText = parking;
         document.getElementById('ticketTime').innerText = `${date} | ${time}`;
         document.getElementById('ticketSlot').innerText = slot;
         document.getElementById('ticketVehicle').innerText = vehicle;
+        
+        // Dynamically request high-quality QR code image generated from real-time ticket code
+        document.getElementById('ticketQrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(finalBookingId.toUpperCase())}`;
+        
         new bootstrap.Modal(document.getElementById('ticketModal')).show();
     }
 

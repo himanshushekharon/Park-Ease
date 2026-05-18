@@ -195,6 +195,7 @@
         <!-- Auth Container Side (Left on Desktop) -->
         <div class="auth-right">
             <div class="auth-glass-container">
+                <div id="sync-error" style="display:none;"></div>
                 <div id="sign-up-loading" class="clerk-loading-container">
                     <div class="spinner-border text-info" role="status">
                         <span class="visually-hidden">Loading...</span>
