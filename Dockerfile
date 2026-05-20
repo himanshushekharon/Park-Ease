@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl-dev \
     pkg-config \
+    libzstd-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Node.js 20 (LTS) via NodeSource ───────────────────────────────────────
